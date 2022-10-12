@@ -177,9 +177,13 @@ def on_mouse(event, x, y, flags, param):
     
     elif event == cv2.EVENT_LBUTTONDBLCLK:
         print("x : {0}, y : {1}".format(x, y))
-        if any(x in pre_x for pre_x in pre_left_lane_coordi.points) and any(y in pre_y for pre_y in pre_left_lane_coordi.points):
-            print('true')
-        else : print('false')
+        index = 0
+        for pre_x in pre_left_lane_coordi.points:
+            if x in pre_x:
+                print(index)
+                break
+            index+=1
+
         
 def labeling(imagenum, auto_bright): 
     cv2.namedWindow('labeling_tusimple',cv2.WND_PROP_FULLSCREEN)
