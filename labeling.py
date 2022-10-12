@@ -158,7 +158,7 @@ def on_mouse(event, x, y, flags, param):
         #왼쪽 point, line 불러오기
         left_lane_coordi = copy.deepcopy(pre_left_lane_coordi)
         for count in range(0, len(left_lane_coordi.points)):
-            cv2.circle(param[0], (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), 2, blue, -1)
+            cv2.circle(param[0], (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), 5, blue, -1)
             if count != 0:
                 cv2.line(param[0], (left_lane_coordi.points[count-1][0], left_lane_coordi.points[count-1][1]), 
                          (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA) 
@@ -167,7 +167,7 @@ def on_mouse(event, x, y, flags, param):
         #오른쪽 point, line 불러오기
         right_lane_coordi = copy.deepcopy(pre_right_lane_coordi)
         for count in range(0, len(right_lane_coordi.points)):
-            cv2.circle(param[0], (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), 2, blue, -1)
+            cv2.circle(param[0], (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), 5, blue, -1)
             if count != 0:
                 cv2.line(param[0], (right_lane_coordi.points[count-1][0], right_lane_coordi.points[count-1][1]), 
                          (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA) 
