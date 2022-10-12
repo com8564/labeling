@@ -169,8 +169,8 @@ def on_mouse(event, x, y, flags, param):
         for count in range(0, len(right_lane_coordi.points)):
             cv2.circle(param[0], (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), 5, blue, -1)
             if count != 0:
-                cv2.line(param[0], (right_lane_coordi.points[count-1][0], right_lane_coordi.points[count-1][1]), 
-                         (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA) 
+                cv2.line(param[0], (right_lane_coordi.points[count-1][0], right_lane_coordi.points[count-1][1]),
+                         (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA)
         calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
         
         lane_count = 8 # 이전 라벨링을 불러왔기 때문에 lane_count 8로 설정
@@ -180,9 +180,16 @@ def on_mouse(event, x, y, flags, param):
         index = 0
         for pre_x in pre_left_lane_coordi.points:
             if x in pre_x:
-                print(index)
+                print("left index : {}".format(index))
                 break
-            index+=1
+            index += 1
+            
+        index = 0
+        for pre_x in pre_right_lane_coordi.points:
+            if x in pre_x:
+                print("right index : {}".format(index))
+                break
+            index += 1
 
         
 def labeling(imagenum, auto_bright): 
