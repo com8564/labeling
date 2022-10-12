@@ -1,0 +1,369 @@
+import sys
+import numpy as np
+import cv2
+import json
+import os
+from collections import OrderedDict
+from argparse import ArgumentParser as ArgParse
+import copy
+
+green = (0, 255, 0)                 #이미지 내에 선이나 글자의 색상 : 녹색
+red = (0, 0, 255)                   #이미지 내에 선이나 글자의 색상 : 빨강
+blue = (255,0,0)                    #이미지 내에 선이나 글자의 색상 : 파랑
+yellow = (0,255,255)                #이미지 내에 선이나 글자의 색상 : 노랑
+
+NEXT_PAGE = 32                      #space key ascii code
+h_samples = list(range(320, 720, 10))
+print(h_samples)
+json_file_path='./train_cart.json'  #train_cart.json 파일 경로
+f = open("./train.txt", 'r')        #train image의 경로가 적힌 train.txt 파일 로드
+lines = f.readlines()               #train.txt를 라인별로 읽음
+file_data = OrderedDict()           #json파일 저장을 위한 file_data 선언
+
+#글자 출력에 관한 global variable
+font=cv2.FONT_HERSHEY_SIMPLEX       #폰트 종류
+org = (10, 60)                      #폰트를 찍는 위치
+file_count = 0                      #labeling하는 파일 차례(순서)
+
+#lane에 대한 global variable
+lane_class = 1
+left_lane = 0                       #left lain은 0으로 표시함 (내가 지정했음)
+right_lane = 1                      #right lain은 1로 표시함 (내가 지정했음)
+lane_count = 0                      #lane의 점을 몇개 찍었는지 count
+
+class MyLane:
+    def __init__(self):
+        self.points = []
+    def points_append(self, x1, y1):
+        self.points.append((x1, y1))
+
+def calc_inclination(lane_coordi, lane, param, h_anchor):
+    #x1 : lane_coordi.points[0][0]
+    #y1 : lane_coordi.points[0][1]
+    #x2 : lane_coordi.points[1][0]
+    #y2 : lane_coordi.points[1][1]
+
+    m = [] # inclination
+    b = [] # y-intercept
+    lane_x_axis = []
+    
+    for i in range(0, len(lane_coordi.points)-1):
+        if(lane_coordi.points[i+1][0]-lane_coordi.points[i][0]) == 0 :
+            m.append(0)
+        else:
+            m.append((lane_coordi.points[i+1][1]-lane_coordi.points[i][1])/(lane_coordi.points[i+1][0]-lane_coordi.points[i][0]))
+
+        b.append(lane_coordi.points[i][1]-(m[i]*lane_coordi.points[i][0]))
+
+    count_index = 0  # count index는 몇번째 anchor 인지 확인하는 flag
+
+    # print('file_data["h_samples"] : ' + str(h_anchor))
+    # 직선의 방정식에 따른 x좌표값 추출하는 식 lane_x_axis = [int((num-b)/m) for num in h_samples]
+    # 기울기 0일 경우 바로 click point의 x좌표로 설정
+
+    for num in h_samples:
+        if num < lane_coordi.points[3][1]:
+            lane_x_axis.append(-2)
+
+        elif num < lane_coordi.points[2][1]:
+            if m[2] == 0 : lane_x_axis.append(lane_coordi.points[2][0])
+            else : lane_x_axis.append(int((num-b[2])/m[2]))
+
+        elif num < lane_coordi.points[1][1]:
+            if m[1] == 0 : lane_x_axis.append(lane_coordi.points[1][0])
+            else : lane_x_axis.append(int((num-b[1])/m[1]))
+
+        elif num < lane_coordi.points[0][1]:
+            if m[0] == 0 : lane_x_axis.append(lane_coordi.points[0][0])
+            else : lane_x_axis.append(int((num-b[0])/m[0]))
+
+        else:
+            lane_x_axis.append(-2)
+
+    print('lane_x_axis : ' + str(lane_x_axis))
+    h, w, _ = param.shape                                           #이미지 사이즈의 h, w
+
+    for i in h_samples:
+        if lane_x_axis[count_index] >= 0 and lane_x_axis[count_index] <= w:  #추출한 x의 좌표가 영상 안에 존재하거나, y축의 값이 anchor 값 사이일경우만 입력하고 아니면 -2 입력할것
+            file_data["lanes"][lane].append(lane_x_axis[count_index])
+        else:
+            file_data["lanes"][lane].append(-2)
+        count_index += 1
+    print('lanes : ', end='')
+    print(file_data["lanes"])
+    x_axis_index = 0
+
+    #사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
+    for i in h_samples:
+        if file_data["lanes"][lane][x_axis_index] != -2:
+            cv2.circle(param, (file_data["lanes"][lane][x_axis_index], i), 5, green, -1)
+        x_axis_index += 1
+    #cv2.line(param, (x1, y1), (x2, y2), (0, 0, 255), 4, cv2.LINE_AA)
+    cv2.imshow('labeling_tusimple', param)
+    return m, b
+
+def on_mouse(event, x, y, flags, param):
+    # event는 마우스 동작 상수값, 클릭, 이동 등등
+    # x, y는 내가 띄운 창을 기준으로 좌측 상단점이 0,0이 됌
+    # flags는 마우스 이벤트가 발생할 때 키보드 또는 마우스 상태를 의미, Shif+마우스 등 설정가능
+    # param은 영상 일수도 있도 전달하고 싶은 데이타, 안쓰더라도 넣어줘야함
+    global lane_count, left_lane_coordi, right_lane_coordi, h_samples # 밖에 있는 oldx, oldy 불러옴
+    global pre_left_lane_coordi, pre_right_lane_coordi
+    
+    if event == cv2.EVENT_LBUTTONDOWN: # 마우스 왼쪽이 눌러지면 실행
+        if lane_count >= 0 and lane_count < 4:
+            left_lane_coordi.points_append(x, y)                # 마우스가 눌렀을 때 좌표 저장, 띄워진 영상에서의 좌측 상단 기준
+            param[1] = param[0].copy()
+            if lane_count == 3:
+                calc_inclination(left_lane_coordi, left_lane, param[0], h_samples)
+            print('count : ' + str(lane_count), end=' -> ')
+            cv2.circle(param[0], (x, y), 5, blue, -1)
+            cv2.circle(param[1], (x, y), 5, blue, -1)
+            cv2.imshow('labeling_tusimple', param[0])
+            print('EVENT_LBUTTONDOWN: %d, %d' % (x, y)) # 좌표 출력
+            lane_count += 1
+
+        elif lane_count >= 4 and lane_count < 8:
+            right_lane_coordi.points_append(x, y)               # 마우스가 눌렀을 때 좌표 저장, 띄워진 영상에서의 좌측 상단 기준
+            param[1] = param[0].copy()
+            if lane_count == 7:
+                calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
+            print('count : ' + str(lane_count), end=' -> ')
+            cv2.circle(param[0], (x, y), 5, blue, -1)
+            cv2.circle(param[1], (x, y), 5, blue, -1)
+            cv2.imshow('labeling_tusimple', param[0])
+            print('EVENT_LBUTTONDOWN: %d, %d' % (x, y)) # 좌표 출력
+            lane_count += 1
+            
+        else:
+            pass
+
+    elif event == cv2.EVENT_MOUSEMOVE: # 마우스가 움직일 때 발생
+        # if flags & cv2.EVENT_FLAG_LBUTTON: # ==를 쓰면 다른 키도 입력되었을 때 작동안하므로 &(and) 사용
+        if lane_count == 0 or lane_count == 4:
+            pass
+        elif lane_count > 0 and lane_count < 4:
+            param[0] = param[1].copy()
+            cv2.line(param[0], (left_lane_coordi.points[lane_count-1][0], left_lane_coordi.points[lane_count-1][1]), (x, y), red, 4, cv2.LINE_AA)
+            cv2.imshow('labeling_tusimple', param[0]) 
+            
+        elif lane_count > 4 and lane_count < 8:
+            param[0] = param[1].copy()
+            cv2.line(param[0], (right_lane_coordi.points[lane_count-5][0], right_lane_coordi.points[lane_count-5][1]), (x, y), red, 4, cv2.LINE_AA)
+            cv2.imshow('labeling_tusimple', param[0])
+        else:
+            pass
+    
+    elif event == cv2.EVENT_RBUTTONDOWN: #오른쪽 마우스 누를때 이전 라벨링 불러오기
+        #왼쪽 point, line 불러오기
+        left_lane_coordi = copy.deepcopy(pre_left_lane_coordi)
+        for count in range(0, len(left_lane_coordi.points)):
+            cv2.circle(param[0], (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), 2, blue, -1)
+            if count != 0:
+                cv2.line(param[0], (left_lane_coordi.points[count-1][0], left_lane_coordi.points[count-1][1]), 
+                         (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA) 
+        calc_inclination(left_lane_coordi, left_lane, param[0], h_samples)
+        
+        #오른쪽 point, line 불러오기
+        right_lane_coordi = copy.deepcopy(pre_right_lane_coordi)
+        for count in range(0, len(right_lane_coordi.points)):
+            cv2.circle(param[0], (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), 2, blue, -1)
+            if count != 0:
+                cv2.line(param[0], (right_lane_coordi.points[count-1][0], right_lane_coordi.points[count-1][1]), 
+                         (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA) 
+        calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
+        
+        lane_count = 8 # 이전 라벨링을 불러왔기 때문에 lane_count 8로 설정
+    
+    elif event == cv2.EVENT_LBUTTONDBLCLK:
+        print("x : {0}, y : {1}".format(x, y))
+        if any(x in pre_x for pre_x in pre_left_lane_coordi.points) and any(y in pre_y for pre_y in pre_left_lane_coordi.points):
+            print('true')
+        else : print('false')
+        
+def labeling(imagenum, auto_bright): 
+    cv2.namedWindow('labeling_tusimple',cv2.WND_PROP_FULLSCREEN)
+    file_count = imagenum-1    
+    global file_data, lane_count
+    global left_lane_coordi, right_lane_coordi, pre_left_lane_coordi, pre_right_lane_coordi #이전의 값들을 받아오기 위해 global 변수로 받아옴
+
+    pre_left_lane_coordi.__init__()
+    pre_right_lane_coordi.__init__()
+    
+    while(file_count < len(lines)):
+    #for line in lines: #for문으로 하니까 index 조절이 안됨
+        line = lines[file_count]
+
+        left_lane_coordi.__init__()
+        right_lane_coordi.__init__()
+
+        file_data=OrderedDict()
+        lane_count = 0        
+        #print('lines : ' + str(len(lines)))
+        line=line.strip()
+        file_data["lanes"]=[[],[]]
+        file_data["h_samples"] = h_samples   
+        #print('file num : ' + str(len(lines)), end=' ')
+        #print(line)
+        img = cv2.imread(line, cv2.IMREAD_COLOR)
+        img_h, img_w,_ = img.shape
+
+        if auto_bright == 1:
+            img_crop_ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+            yyy, cr, cb = cv2.split(img_crop_ycrcb)
+
+            # 밝기 성분에 대해서만 히스토그램 평활화 수행
+            dst_y = cv2.equalizeHist(yyy)
+            dst_ycrcb = cv2.merge([dst_y, cr, cb])
+            crop = cv2.cvtColor(dst_ycrcb, cv2.COLOR_YCrCb2BGR)
+
+        else:
+            crop = img.copy()
+        #crop2는 마우스 이동시 직선을 잘 그려주기 위해서 임시로 이전 frame을 저장하기 위한것
+        
+        crop2 = crop.copy()
+        img_crop = [crop, crop2]
+
+        seg_gt_png_path=(line.rstrip('.jpg ')) + '.png'        
+        train_gt_str = line + ' ' + seg_gt_png_path
+        label_index_txt=seg_gt_png_path.split('/')
+        label_index_txt = label_index_txt[len(label_index_txt)-1].rstrip('.png')
+        train_cart_classes = ''
+        file_data["raw_file"] = line
+
+        #아래 cv2.line은 사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
+        cv2.line(crop, (0, h_samples[0]), (img_w, h_samples[0]), yellow, 5, cv2.LINE_AA)             
+        cv2.line(crop, (0, h_samples[len(h_samples)-1]), (img_w, h_samples[len(h_samples)-1]), yellow, 4, cv2.LINE_AA)
+        #위 cv2.line은 사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
+        
+        text = str(file_count+1) + ' / ' + str(len(lines)) + ' filename : ' + line
+        cv2.putText(crop, text, org, font, 1, red, 4)    
+        # 윈도우 창
+        # 마우스 입력, namedWIndow or imshow가 실행되어 창이 떠있는 상태에서만 사용가능
+        # 마우스 이벤트가 발생하면 on_mouse 함수 실행
+        cv2.setMouseCallback('labeling_tusimple', on_mouse, param=img_crop)
+
+        # 영상 출력
+        cv2.imshow('labeling_tusimple', crop)
+        waitKey=cv2.waitKey()
+        # print(waitKey)
+        
+        if NEXT_PAGE == waitKey:
+            file_count += 1                
+            if lane_count >= 3:     #lane이 2개 이상 선택 되었을때 json으로 저장할것
+                #여기에 json 파일 추가해야함!!!!!!!!!!!!!                
+                ##################################################cv2.imsave 해줘야함~!!!
+                label_img = np.zeros((img_h, img_w), dtype=np.uint8) 
+                if len(file_data["lanes"][0]) > 0:
+                    lane_class = 1 #왼쪽
+                    train_gt_str = train_gt_str + ' ' + '1'
+                    train_cart_classes = train_cart_classes + '1'
+
+                    for i in range(0, len(file_data["lanes"][0])-1):
+                        if file_data["lanes"][0][i] != -2 and file_data["lanes"][0][i+1] != -2:
+                            cv2.line(label_img, (file_data["lanes"][0][i], h_samples[i]), (file_data["lanes"][0][i+1], h_samples[i+1]), lane_class, 24, cv2.LINE_8)
+                else:
+                    train_gt_str = train_gt_str + ' ' + '0'
+                    train_cart_classes = train_cart_classes + '0'
+
+                if len(file_data["lanes"][1]) > 0:
+                    lane_class = 2 #오른쪽
+                    train_gt_str = train_gt_str + ' ' + '1'
+                    train_cart_classes = train_cart_classes + ' 1'
+
+                    for i in range(0, len(file_data["lanes"][1])-1):
+                        if file_data["lanes"][1][i] != -2 and file_data["lanes"][1][i+1] != -2:
+                            cv2.line(label_img, (file_data["lanes"][1][i], h_samples[i]), (file_data["lanes"][1][i+1], h_samples[i+1]), lane_class, 24, cv2.LINE_8)
+                else:
+                    train_gt_str = train_gt_str + ' ' + '0'
+                    train_cart_classes = train_cart_classes + ' 0'
+
+                train_gt_str = train_gt_str + '\n'
+                if train_cart_classes != None:
+                    train_cart_classes = train_cart_classes+'\n'
+                    
+                print('h_samples : ', end='')
+                print(file_data["h_samples"])
+                print('lanes : ', end='')
+                print(file_data["lanes"])
+
+                with open("./train_cart_classes.txt", 'r+') as gt_classes_txt:
+                    for line in gt_classes_txt:
+                        pass
+                    gt_classes_txt.write(train_cart_classes)
+
+                with open("./train_gt.txt", 'r+') as gt_txt:
+                    for line in gt_txt:
+                        pass
+                    gt_txt.write(train_gt_str)
+                #gt_lines = gt_txt.readlines()
+                # cv2.imshow('label_img', label_img)     #seg label 보고싶으면 이걸 활성화 할것
+                cv2.imwrite(seg_gt_png_path, label_img)
+                pre_left_lane_coordi = copy.deepcopy(left_lane_coordi)
+                pre_right_lane_coordi = copy.deepcopy(right_lane_coordi)
+
+                with open(json_file_path, "r+") as json_file:
+                    for line in json_file:                  #파일의 맨 끝으로 가는 코드                        
+                        pass
+                    string = json.dumps(file_data)
+                    string += '\n'
+                    json_file.write(string)                
+                print(label_index_txt)
+                with open("./label_index.txt", 'w') as label_index_str:
+                    label_index_str.write(label_index_txt)
+            continue
+
+        elif waitKey == 3 or waitKey == 54:      #-> 방향키 눌렀을때 다음 이미지로 그냥 넘어가고 라벨링은 안됨
+            file_count += 1
+
+        elif waitKey == 2 or waitKey == 52:      #<- 방향키 눌렀을때 이전 이미지로 그냥 넘어가고 라벨링은 안됨
+            if(file_count > 0) : file_count -= 1
+            else : file_count = 0
+
+        elif waitKey == 49:      #키보드 1을 누르면 auto_bright가 바뀜
+            if auto_bright == 1:
+                auto_bright = 0
+                print('auto_bright off')
+            else:
+                auto_bright = 1
+                print('auto_bright on')
+
+        elif waitKey== ord('q') or waitKey==ord('Q') or waitKey==66: #'q' (113) 나 'Q' (81) 누르면 while문에서 빠져나가도록
+            #json 저장 함수 호출 작성해야함!!!!!!!!!!!
+            break
+
+        elif waitKey == 27 or waitKey == 8: # 기존 라벨링 지우기
+            continue
+
+    cv2.destroyAllWindows()
+    f.close()
+
+if __name__=='__main__':
+    ap = ArgParse()
+    ap.add_argument('--imagenum', type=int, default=0)
+    ap.add_argument('--auto_bright', type=int, default=1)
+    #ap.add_argument('--labels', type=str, default='label_data_0313.json')
+
+    args = ap.parse_args()
+
+    #label_index.txt 파일에 적힌 번호 다음 번호를 받아와서 이미지를 로드함
+    label_index = 0
+    with open("./label_index.txt", 'r') as label_index_num:
+        readline_label_index=label_index_num.readlines()            
+        if readline_label_index != None:                        
+            label_index=int(readline_label_index[0])+1
+            
+    if label_index != 0 and args.imagenum == 0:
+        args.imagenum = label_index
+        print('label_index.txt 파일에 의해 ' + str(label_index) + '번 이미지가 열림')        
+    #--imagenum argument로 사용자에게 이미지 번호를 받아서 로드함
+    elif args.imagenum !=0:
+        print('사용자에 의해 ' + str(args.imagenum) + '번 이미지가 열림')        
+
+    left_lane_coordi = MyLane()
+    right_lane_coordi = MyLane()
+
+    pre_left_lane_coordi = MyLane()
+    pre_right_lane_coordi = MyLane()
+
+    labeling(args.imagenum, args.auto_bright)
