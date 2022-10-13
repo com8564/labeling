@@ -270,6 +270,8 @@ def on_mouse(event, x, y, flags, param):
                 elif r_index == 3:
                     cv2.line(param[0], (right_lane_coordi.points[r_index-1][0], right_lane_coordi.points[r_index-1][1]), (x, y), magenta, 4, cv2.LINE_AA)
                     cv2.imshow('labeling_tusimple', param[0])
+                    
+            param[1] = param[0].copy()
 
         else:
             if lane_count == 0 or lane_count == 4:
@@ -306,15 +308,18 @@ def on_mouse(event, x, y, flags, param):
         # cv2.imshow('labeling_tusimple', param[0])
     
     elif event == cv2.EVENT_RBUTTONUP:
-        left_lane_coordi.point_change(l_index, (x, y))
-        calc_inclination(left_lane_coordi, left_lane, param[0], h_samples)
-        l_index = -1
-
-        right_lane_coordi.point_change(r_index, (x, y))
-        calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
-        r_index = -1
+        if l_index != -1:
+            left_lane_coordi.point_change(l_index, (x, y))
+            calc_inclination(left_lane_coordi, left_lane, param[0], h_samples)
+            l_index = -1
+        
+        if r_index != -1:
+            right_lane_coordi.point_change(r_index, (x, y))
+            calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
+            r_index = -1
 
     elif event == cv2.EVENT_RBUTTONDBLCLK: #오른쪽 마우스 더블클릭 이전 라벨링 불러오기
+        print("RBUTTONDBLCLK")
         #왼쪽 point, line 불러오기
         left_lane_coordi = copy.deepcopy(pre_left_lane_coordi)
         for count in range(0, len(left_lane_coordi.points)):
@@ -330,7 +335,8 @@ def on_mouse(event, x, y, flags, param):
             if count != 0:
                 cv2.line(param[0], (right_lane_coordi.points[count-1][0], right_lane_coordi.points[count-1][1]),
                          (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA)
-
+                
+        cv2.imshow('labeling_tusimple', param[0]) 
         param[1] = param[0].copy()
         lane_count = 8 # 이전 라벨링을 불러왔기 때문에 lane_count 8로 설정
     
