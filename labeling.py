@@ -31,27 +31,36 @@ left_lane = 0                       #left lain은 0으로 표시함 (내가 지�
 right_lane = 1                      #right lain은 1로 표시함 (내가 지정했음)
 lane_count = 0                      #lane의 점을 몇개 찍었는지 count
 
+
 class MyLane:
     def __init__(self):
         self.points = []
+
     def points_append(self, x1, y1):
         self.points.append((x1, y1))
 
-def calc_inclination(lane_coordi, lane, param, h_anchor):
-    #x1 : lane_coordi.points[0][0]
-    #y1 : lane_coordi.points[0][1]
-    #x2 : lane_coordi.points[1][0]
-    #y2 : lane_coordi.points[1][1]
+    def point_insert(self, index, val):
+        self.points.insert(index, val)
 
-    m = [] # inclination
-    b = [] # y-intercept
+
+def calc_inclination(lane_coordi, lane, param, h_anchor):
+    """
+    x1 : lane_coordi.points[0][0]
+    y1 : lane_coordi.points[0][1]
+    x2 : lane_coordi.points[1][0]
+    y2 : lane_coordi.points[1][1]
+    """
+
+    m = []  # inclination
+    b = []  # y-intercept
     lane_x_axis = []
-    
+
     for i in range(0, len(lane_coordi.points)-1):
-        if(lane_coordi.points[i+1][0]-lane_coordi.points[i][0]) == 0 :
+        if (lane_coordi.points[i+1][0]-lane_coordi.points[i][0]) == 0:
             m.append(0)
         else:
-            m.append((lane_coordi.points[i+1][1]-lane_coordi.points[i][1])/(lane_coordi.points[i+1][0]-lane_coordi.points[i][0]))
+            m.append((lane_coordi.points[i+1][1]-lane_coordi.points[i][1])/(
+                lane_coordi.points[i+1][0]-lane_coordi.points[i][0]))
 
         b.append(lane_coordi.points[i][1]-(m[i]*lane_coordi.points[i][0]))
 
@@ -66,25 +75,32 @@ def calc_inclination(lane_coordi, lane, param, h_anchor):
             lane_x_axis.append(-2)
 
         elif num < lane_coordi.points[2][1]:
-            if m[2] == 0 : lane_x_axis.append(lane_coordi.points[2][0])
-            else : lane_x_axis.append(int((num-b[2])/m[2]))
+            if m[2] == 0:
+                lane_x_axis.append(lane_coordi.points[2][0])
+            else:
+                lane_x_axis.append(int((num-b[2])/m[2]))
 
         elif num < lane_coordi.points[1][1]:
-            if m[1] == 0 : lane_x_axis.append(lane_coordi.points[1][0])
-            else : lane_x_axis.append(int((num-b[1])/m[1]))
+            if m[1] == 0:
+                lane_x_axis.append(lane_coordi.points[1][0])
+            else:
+                lane_x_axis.append(int((num-b[1])/m[1]))
 
         elif num < lane_coordi.points[0][1]:
-            if m[0] == 0 : lane_x_axis.append(lane_coordi.points[0][0])
-            else : lane_x_axis.append(int((num-b[0])/m[0]))
+            if m[0] == 0:
+                lane_x_axis.append(lane_coordi.points[0][0])
+            else:
+                lane_x_axis.append(int((num-b[0])/m[0]))
 
         else:
             lane_x_axis.append(-2)
 
     print('lane_x_axis : ' + str(lane_x_axis))
-    h, w, _ = param.shape                                           #이미지 사이즈의 h, w
+    h, w, _ = param.shape  # 이미지 사이즈의 h, w
 
     for i in h_samples:
-        if lane_x_axis[count_index] >= 0 and lane_x_axis[count_index] <= w:  #추출한 x의 좌표가 영상 안에 존재하거나, y축의 값이 anchor 값 사이일경우만 입력하고 아니면 -2 입력할것
+        # 추출한 x의 좌표가 영상 안에 존재하거나, y축의 값이 anchor 값 사이일경우만 입력하고 아니면 -2 입력할것
+        if lane_x_axis[count_index] >= 0 and lane_x_axis[count_index] <= w:
             file_data["lanes"][lane].append(lane_x_axis[count_index])
         else:
             file_data["lanes"][lane].append(-2)
@@ -96,7 +112,8 @@ def calc_inclination(lane_coordi, lane, param, h_anchor):
     #사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
     for i in h_samples:
         if file_data["lanes"][lane][x_axis_index] != -2:
-            cv2.circle(param, (file_data["lanes"][lane][x_axis_index], i), 5, green, -1)
+            cv2.circle(param, (file_data["lanes"]
+                       [lane][x_axis_index], i), 5, green, -1)
         x_axis_index += 1
     #cv2.line(param, (x1, y1), (x2, y2), (0, 0, 255), 4, cv2.LINE_AA)
     cv2.imshow('labeling_tusimple', param)
@@ -177,16 +194,17 @@ def on_mouse(event, x, y, flags, param):
     
     elif event == cv2.EVENT_LBUTTONDBLCLK:
         print("x : {0}, y : {1}".format(x, y))
+
         index = 0
-        for pre_x in pre_left_lane_coordi.points:
-            if x in pre_x:
+        for pre_left in pre_left_lane_coordi.points:
+            if (x >= pre_left[0] - 2 and x <= pre_left[0] + 2) and (y >= pre_left[1] - 2 and y <= pre_left[1] + 2):
                 print("left index : {}".format(index))
                 break
             index += 1
-            
+
         index = 0
-        for pre_x in pre_right_lane_coordi.points:
-            if x in pre_x:
+        for pre_right in pre_right_lane_coordi.points:
+            if (x >= pre_right[0] - 2 and x <= pre_right[0] + 2) and (y >= pre_right[1] - 2 and y <= pre_right[1] + 2):
                 print("right index : {}".format(index))
                 break
             index += 1
