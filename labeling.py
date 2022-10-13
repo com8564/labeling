@@ -338,9 +338,9 @@ def labeling(imagenum, auto_bright):
         # 영상 출력
         cv2.imshow('labeling_tusimple', crop)
         waitKey=cv2.waitKey()
-        # print(waitKey)
+        print(waitKey)
         
-        if NEXT_PAGE == waitKey:
+        if NEXT_PAGE == waitKey or waitKey == 13 :
             file_count += 1                
             if lane_count >= 3:     #lane이 2개 이상 선택 되었을때 json으로 저장할것
                 #여기에 json 파일 추가해야함!!!!!!!!!!!!!                
