@@ -11,6 +11,8 @@ green = (0, 255, 0)                 #이미지 내에 선이나 글자의 색상
 red = (0, 0, 255)                   #이미지 내에 선이나 글자의 색상 : 빨강
 blue = (255,0,0)                    #이미지 내에 선이나 글자의 색상 : 파랑
 yellow = (0,255,255)                #이미지 내에 선이나 글자의 색상 : 노랑
+magenta = (255,0,255)               #이미지 내에 선이나 글자의 색상 : 자홍
+sky_blue = (255,255,0)              #이미지 내에 선이나 글자의 색상 : 하늘
 
 NEXT_PAGE = 32                      #space key ascii code
 h_samples = list(range(320, 720, 10))
@@ -31,6 +33,9 @@ left_lane = 0                       #left lain은 0으로 표시함 (내가 지�
 right_lane = 1                      #right lain은 1로 표시함 (내가 지정했음)
 lane_count = 0                      #lane의 점을 몇개 찍었는지 count
 
+#이전의 라벨링 불러올때 쓰는 global variable
+l_index = -1
+r_index = -1
 
 class MyLane:
     def __init__(self):
@@ -39,8 +44,8 @@ class MyLane:
     def points_append(self, x1, y1):
         self.points.append((x1, y1))
 
-    def point_insert(self, index, val):
-        self.points.insert(index, val)
+    def point_change(self, index, val):
+        self.points[index] = val
 
 
 def calc_inclination(lane_coordi, lane, param, h_anchor):
@@ -69,7 +74,6 @@ def calc_inclination(lane_coordi, lane, param, h_anchor):
     # print('file_data["h_samples"] : ' + str(h_anchor))
     # 직선의 방정식에 따른 x좌표값 추출하는 식 lane_x_axis = [int((num-b)/m) for num in h_samples]
     # 기울기 0일 경우 바로 click point의 x좌표로 설정
-
     for num in h_samples:
         if num < lane_coordi.points[3][1]:
             lane_x_axis.append(-2)
@@ -100,6 +104,9 @@ def calc_inclination(lane_coordi, lane, param, h_anchor):
 
     for i in h_samples:
         # 추출한 x의 좌표가 영상 안에 존재하거나, y축의 값이 anchor 값 사이일경우만 입력하고 아니면 -2 입력할것
+        if len(file_data['lanes'][lane]) >=40:
+            del file_data['lanes'][lane][:]
+
         if lane_x_axis[count_index] >= 0 and lane_x_axis[count_index] <= w:
             file_data["lanes"][lane].append(lane_x_axis[count_index])
         else:
@@ -119,13 +126,90 @@ def calc_inclination(lane_coordi, lane, param, h_anchor):
     cv2.imshow('labeling_tusimple', param)
     return m, b
 
+
+# def pre_calc_inclination(lane_coordi, lane, param, h_anchor):
+#     """
+#     x1 : lane_coordi.points[0][0]
+#     y1 : lane_coordi.points[0][1]
+#     x2 : lane_coordi.points[1][0]
+#     y2 : lane_coordi.points[1][1]
+#     """
+
+#     m = []  # inclination
+#     b = []  # y-intercept
+#     lane_x_axis = []
+
+#     for i in range(0, len(lane_coordi.points)-1):
+#         if (lane_coordi.points[i+1][0]-lane_coordi.points[i][0]) == 0:
+#             m.append(0)
+#         else:
+#             m.append((lane_coordi.points[i+1][1]-lane_coordi.points[i][1])/(
+#                 lane_coordi.points[i+1][0]-lane_coordi.points[i][0]))
+
+#         b.append(lane_coordi.points[i][1]-(m[i]*lane_coordi.points[i][0]))
+
+#     count_index = 0  # count index는 몇번째 anchor 인지 확인하는 flag
+
+#     # print('file_data["h_samples"] : ' + str(h_anchor))
+#     # 직선의 방정식에 따른 x좌표값 추출하는 식 lane_x_axis = [int((num-b)/m) for num in h_samples]
+#     # 기울기 0일 경우 바로 click point의 x좌표로 설정
+#     for num in h_samples:
+#         if num < lane_coordi.points[3][1]:
+#             lane_x_axis.append(-2)
+
+#         elif num < lane_coordi.points[2][1]:
+#             if m[2] == 0:
+#                 lane_x_axis.append(lane_coordi.points[2][0])
+#             else:
+#                 lane_x_axis.append(int((num-b[2])/m[2]))
+
+#         elif num < lane_coordi.points[1][1]:
+#             if m[1] == 0:
+#                 lane_x_axis.append(lane_coordi.points[1][0])
+#             else:
+#                 lane_x_axis.append(int((num-b[1])/m[1]))
+
+#         elif num < lane_coordi.points[0][1]:
+#             if m[0] == 0:
+#                 lane_x_axis.append(lane_coordi.points[0][0])
+#             else:
+#                 lane_x_axis.append(int((num-b[0])/m[0]))
+
+#         else:
+#             lane_x_axis.append(-2)
+
+#     print('lane_x_axis : ' + str(lane_x_axis))
+#     h, w, _ = param.shape  # 이미지 사이즈의 h, w
+
+#     for i in h_samples:
+#         # 추출한 x의 좌표가 영상 안에 존재하거나, y축의 값이 anchor 값 사이일경우만 입력하고 아니면 -2 입력할것
+#         if lane_x_axis[count_index] >= 0 and lane_x_axis[count_index] <= w:
+#             file_data["lanes"][lane].append(lane_x_axis[count_index])
+#         else:
+#             file_data["lanes"][lane].append(-2)
+#         count_index += 1
+#     print('lanes : ', end='')
+#     print(file_data["lanes"])
+#     x_axis_index = 0
+
+#     #사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
+#     for i in h_samples:
+#         if file_data["lanes"][lane][x_axis_index] != -2:
+#             cv2.circle(param, (file_data["lanes"]
+#                        [lane][x_axis_index], i), 5, green, -1)
+#         x_axis_index += 1
+#     #cv2.line(param, (x1, y1), (x2, y2), (0, 0, 255), 4, cv2.LINE_AA)
+#     cv2.imshow('labeling_tusimple', param)
+#     return m, b
+
+
 def on_mouse(event, x, y, flags, param):
     # event는 마우스 동작 상수값, 클릭, 이동 등등
     # x, y는 내가 띄운 창을 기준으로 좌측 상단점이 0,0이 됌
     # flags는 마우스 이벤트가 발생할 때 키보드 또는 마우스 상태를 의미, Shif+마우스 등 설정가능
     # param은 영상 일수도 있도 전달하고 싶은 데이타, 안쓰더라도 넣어줘야함
     global lane_count, left_lane_coordi, right_lane_coordi, h_samples # 밖에 있는 oldx, oldy 불러옴
-    global pre_left_lane_coordi, pre_right_lane_coordi
+    global pre_left_lane_coordi, pre_right_lane_coordi, l_index, r_index
     
     if event == cv2.EVENT_LBUTTONDOWN: # 마우스 왼쪽이 눌러지면 실행
         if lane_count >= 0 and lane_count < 4:
@@ -157,29 +241,87 @@ def on_mouse(event, x, y, flags, param):
 
     elif event == cv2.EVENT_MOUSEMOVE: # 마우스가 움직일 때 발생
         # if flags & cv2.EVENT_FLAG_LBUTTON: # ==를 쓰면 다른 키도 입력되었을 때 작동안하므로 &(and) 사용
-        if lane_count == 0 or lane_count == 4:
-            pass
-        elif lane_count > 0 and lane_count < 4:
+        if flags == cv2.EVENT_FLAG_RBUTTON:
             param[0] = param[1].copy()
-            cv2.line(param[0], (left_lane_coordi.points[lane_count-1][0], left_lane_coordi.points[lane_count-1][1]), (x, y), red, 4, cv2.LINE_AA)
-            cv2.imshow('labeling_tusimple', param[0]) 
-            
-        elif lane_count > 4 and lane_count < 8:
-            param[0] = param[1].copy()
-            cv2.line(param[0], (right_lane_coordi.points[lane_count-5][0], right_lane_coordi.points[lane_count-5][1]), (x, y), red, 4, cv2.LINE_AA)
-            cv2.imshow('labeling_tusimple', param[0])
+            if l_index != -1:
+                if l_index > 0 and l_index <3:
+                    cv2.line(param[0], (left_lane_coordi.points[l_index-1][0], left_lane_coordi.points[l_index-1][1]), (x, y), magenta, 4, cv2.LINE_AA)
+                    cv2.line(param[0], (x, y), (left_lane_coordi.points[l_index+1][0], left_lane_coordi.points[l_index+1][1]), magenta, 4, cv2.LINE_AA)
+                    cv2.imshow('labeling_tusimple', param[0])
+
+                elif l_index == 0 :
+                    cv2.line(param[0], (x, y), (left_lane_coordi.points[l_index+1][0], left_lane_coordi.points[l_index+1][1]), magenta, 4, cv2.LINE_AA)
+                    cv2.imshow('labeling_tusimple', param[0])
+
+                elif l_index == 3:
+                    cv2.line(param[0], (left_lane_coordi.points[l_index-1][0], left_lane_coordi.points[l_index-1][1]), (x, y), magenta, 4, cv2.LINE_AA)
+                    cv2.imshow('labeling_tusimple', param[0])
+
+            if r_index != -1:
+                if r_index > 0 and r_index <3:
+                    cv2.line(param[0], (right_lane_coordi.points[r_index-1][0], right_lane_coordi.points[r_index-1][1]), (x, y), magenta, 4, cv2.LINE_AA)
+                    cv2.line(param[0], (x, y), (right_lane_coordi.points[r_index+1][0], right_lane_coordi.points[r_index+1][1]), magenta, 4, cv2.LINE_AA)
+                    cv2.imshow('labeling_tusimple', param[0])
+
+                elif r_index == 0 :
+                    cv2.line(param[0], (x, y), (right_lane_coordi.points[r_index+1][0], right_lane_coordi.points[r_index+1][1]), magenta, 4, cv2.LINE_AA)
+                    cv2.imshow('labeling_tusimple', param[0])
+
+                elif r_index == 3:
+                    cv2.line(param[0], (right_lane_coordi.points[r_index-1][0], right_lane_coordi.points[r_index-1][1]), (x, y), magenta, 4, cv2.LINE_AA)
+                    cv2.imshow('labeling_tusimple', param[0])
+
         else:
-            pass
+            if lane_count == 0 or lane_count == 4:
+                pass
+            
+            elif lane_count > 0 and lane_count < 4:
+                param[0] = param[1].copy()
+                cv2.line(param[0], (left_lane_coordi.points[lane_count-1][0], left_lane_coordi.points[lane_count-1][1]), (x, y), red, 4, cv2.LINE_AA)
+                cv2.imshow('labeling_tusimple', param[0]) 
+                
+            elif lane_count > 4 and lane_count < 8:
+                param[0] = param[1].copy()
+                cv2.line(param[0], (right_lane_coordi.points[lane_count-5][0], right_lane_coordi.points[lane_count-5][1]), (x, y), red, 4, cv2.LINE_AA)
+                cv2.imshow('labeling_tusimple', param[0])
+            else:
+                pass
+        
+    elif event == cv2.EVENT_RBUTTONDOWN :
+        print("x : {0}, y : {1}".format(x, y))
+        index = 0
+        for pre_left in pre_left_lane_coordi.points:
+            if (x >= pre_left[0] - 2 and x <= pre_left[0] + 2) and (y >= pre_left[1] - 2 and y <= pre_left[1] + 2):
+                l_index = index
+                break
+            index += 1
+        
+        index = 0
+        for pre_right in pre_right_lane_coordi.points:
+            if (x >= pre_right[0] - 2 and x <= pre_right[0] + 2) and (y >= pre_right[1] - 2 and y <= pre_right[1] + 2):
+                r_index = index
+                break
+            index += 1
+        
+        # cv2.imshow('labeling_tusimple', param[0])
     
-    elif event == cv2.EVENT_RBUTTONDOWN: #오른쪽 마우스 누를때 이전 라벨링 불러오기
+    elif event == cv2.EVENT_RBUTTONUP:
+        left_lane_coordi.point_change(l_index, (x, y))
+        calc_inclination(left_lane_coordi, left_lane, param[0], h_samples)
+        l_index = -1
+
+        right_lane_coordi.point_change(r_index, (x, y))
+        calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
+        r_index = -1
+
+    elif event == cv2.EVENT_RBUTTONDBLCLK: #오른쪽 마우스 더블클릭 이전 라벨링 불러오기
         #왼쪽 point, line 불러오기
         left_lane_coordi = copy.deepcopy(pre_left_lane_coordi)
         for count in range(0, len(left_lane_coordi.points)):
             cv2.circle(param[0], (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), 5, blue, -1)
             if count != 0:
                 cv2.line(param[0], (left_lane_coordi.points[count-1][0], left_lane_coordi.points[count-1][1]), 
-                         (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA) 
-        calc_inclination(left_lane_coordi, left_lane, param[0], h_samples)
+                         (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA)
         
         #오른쪽 point, line 불러오기
         right_lane_coordi = copy.deepcopy(pre_right_lane_coordi)
@@ -188,27 +330,10 @@ def on_mouse(event, x, y, flags, param):
             if count != 0:
                 cv2.line(param[0], (right_lane_coordi.points[count-1][0], right_lane_coordi.points[count-1][1]),
                          (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA)
-        calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
-        
+
+        param[1] = param[0].copy()
         lane_count = 8 # 이전 라벨링을 불러왔기 때문에 lane_count 8로 설정
     
-    elif event == cv2.EVENT_LBUTTONDBLCLK:
-        print("x : {0}, y : {1}".format(x, y))
-
-        index = 0
-        for pre_left in pre_left_lane_coordi.points:
-            if (x >= pre_left[0] - 2 and x <= pre_left[0] + 2) and (y >= pre_left[1] - 2 and y <= pre_left[1] + 2):
-                print("left index : {}".format(index))
-                break
-            index += 1
-
-        index = 0
-        for pre_right in pre_right_lane_coordi.points:
-            if (x >= pre_right[0] - 2 and x <= pre_right[0] + 2) and (y >= pre_right[1] - 2 and y <= pre_right[1] + 2):
-                print("right index : {}".format(index))
-                break
-            index += 1
-
         
 def labeling(imagenum, auto_bright): 
     cv2.namedWindow('labeling_tusimple',cv2.WND_PROP_FULLSCREEN)
