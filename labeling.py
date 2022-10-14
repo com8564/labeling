@@ -1,4 +1,5 @@
 import sys
+from cv2 import destroyWindow
 import numpy as np
 import cv2
 import json
@@ -11,8 +12,9 @@ green = (0, 255, 0)                 #이미지 내에 선이나 글자의 색상
 red = (0, 0, 255)                   #이미지 내에 선이나 글자의 색상 : 빨강
 blue = (255,0,0)                    #이미지 내에 선이나 글자의 색상 : 파랑
 yellow = (0,255,255)                #이미지 내에 선이나 글자의 색상 : 노랑
-sky_blue = (255,255,0)               #이미지 내에 선이나 글자의 색상 : 하늘
-purple = (255,0,139)              #이미지 내에 선이나 글자의 색상 : 자주
+sky_blue = (255,255,0)              #이미지 내에 선이나 글자의 색상 : 하늘
+purple = (255,0,139)                #이미지 내에 선이나 글자의 색상 : 자주
+magenta = (255,0,255)               #이미지 내에 선이나 글자의 색상 : 핑크
 
 NEXT_PAGE = 32                      #space key ascii code
 h_samples = list(range(320, 720, 10))
@@ -34,9 +36,9 @@ right_lane = 1                      #right lain은 1로 표시함 (내가 지정
 lane_count = 0                      #lane의 점을 몇개 찍었는지 count
 
 #이전의 라벨링 불러올때 쓰는 global variable
-l_index = -1
-r_index = -1
-pre_label = False
+l_index = -1 #left line mouse point index value
+r_index = -1 #right line mouse point index value
+pre_label = False #이전의 label 불러왔는지 확인 변수
 
 class MyLane:
     def __init__(self):
@@ -173,33 +175,43 @@ def on_mouse(event, x, y, flags, param):
     elif event == cv2.EVENT_MOUSEMOVE: # 마우스가 움직일 때 발생
         # if flags & cv2.EVENT_FLAG_LBUTTON: # ==를 쓰면 다른 키도 입력되었을 때 작동안하므로 &(and) 사용
         if flags == cv2.EVENT_FLAG_RBUTTON:
+            """
+            오른쪽 클릭후 마우스 움직이면 좌표값 이동
+            단, 이전의 라벨링을 가져왔을때만 적용
+            """
             param[0] = param[1].copy()
             if l_index != -1:
                 if l_index > 0 and l_index <3:
                     cv2.line(param[0], (left_lane_coordi.points[l_index-1][0], left_lane_coordi.points[l_index-1][1]), (x, y), sky_blue, 4, cv2.LINE_AA)
                     cv2.line(param[0], (x, y), (left_lane_coordi.points[l_index+1][0], left_lane_coordi.points[l_index+1][1]), sky_blue, 4, cv2.LINE_AA)
+                    cv2.circle(param[0], (x, y), 5, magenta, -1)
                     cv2.imshow('labeling_tusimple', param[0])
 
                 elif l_index == 0 :
                     cv2.line(param[0], (x, y), (left_lane_coordi.points[l_index+1][0], left_lane_coordi.points[l_index+1][1]), sky_blue, 4, cv2.LINE_AA)
+                    cv2.circle(param[0], (x, y), 5, magenta, -1)
                     cv2.imshow('labeling_tusimple', param[0])
 
                 elif l_index == 3:
                     cv2.line(param[0], (left_lane_coordi.points[l_index-1][0], left_lane_coordi.points[l_index-1][1]), (x, y), sky_blue, 4, cv2.LINE_AA)
+                    cv2.circle(param[0], (x, y), 5, magenta, -1)
                     cv2.imshow('labeling_tusimple', param[0])
-
+                
             if r_index != -1:
                 if r_index > 0 and r_index <3:
                     cv2.line(param[0], (right_lane_coordi.points[r_index-1][0], right_lane_coordi.points[r_index-1][1]), (x, y), sky_blue, 4, cv2.LINE_AA)
                     cv2.line(param[0], (x, y), (right_lane_coordi.points[r_index+1][0], right_lane_coordi.points[r_index+1][1]), sky_blue, 4, cv2.LINE_AA)
+                    cv2.circle(param[0], (x, y), 5, magenta, -1)
                     cv2.imshow('labeling_tusimple', param[0])
 
                 elif r_index == 0 :
                     cv2.line(param[0], (x, y), (right_lane_coordi.points[r_index+1][0], right_lane_coordi.points[r_index+1][1]), sky_blue, 4, cv2.LINE_AA)
+                    cv2.circle(param[0], (x, y), 5, magenta, -1)
                     cv2.imshow('labeling_tusimple', param[0])
 
                 elif r_index == 3:
                     cv2.line(param[0], (right_lane_coordi.points[r_index-1][0], right_lane_coordi.points[r_index-1][1]), (x, y), sky_blue, 4, cv2.LINE_AA)
+                    cv2.circle(param[0], (x, y), 5, magenta, -1)
                     cv2.imshow('labeling_tusimple', param[0])
 
         else:
@@ -218,8 +230,9 @@ def on_mouse(event, x, y, flags, param):
             else:
                 pass
         
-    elif event == cv2.EVENT_RBUTTONDOWN :
+    elif event == cv2.EVENT_RBUTTONDOWN : #오른쪽 버튼으로 마우스 좌표 옮기기
         print("x : {0}, y : {1}".format(x, y))
+
         index = 0
         for pre_left in pre_left_lane_coordi.points:
             if (x >= pre_left[0] - 2 and x <= pre_left[0] + 2) and (y >= pre_left[1] - 2 and y <= pre_left[1] + 2):
@@ -235,39 +248,39 @@ def on_mouse(event, x, y, flags, param):
             index += 1
         
         # cv2.imshow('labeling_tusimple', param[0])
-    
-    elif event == cv2.EVENT_RBUTTONUP:
+
+    elif event == cv2.EVENT_LBUTTONDBLCLK: # 이전의 프레임을 불러왔다면, 왼쪽 라벨링 끝나면 더블클릭으로 프레임 저장
+        param[1]=param[0].copy()
+        
+    elif event == cv2.EVENT_RBUTTONUP: 
+        # 기존의 포인터 바꾸고, 새롭게 기울기 저장 및 그리기
         if l_index != -1:
             left_lane_coordi.point_change(l_index, (x, y))
             pre_label = True
             calc_inclination(left_lane_coordi, left_lane, param[0], h_samples)
             l_index = -1
-        
+
         if r_index != -1:
             right_lane_coordi.point_change(r_index, (x, y))
             pre_label = True
             calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
             r_index = -1
+        
 
     elif event == cv2.EVENT_RBUTTONDBLCLK: #오른쪽 마우스 더블클릭 이전 라벨링 불러오기
         #왼쪽 point, line 불러오기
         left_lane_coordi = copy.deepcopy(pre_left_lane_coordi)
+        calc_inclination(left_lane_coordi, left_lane, param[0], h_samples)
         for count in range(0, len(left_lane_coordi.points)):
             cv2.circle(param[0], (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), 5, blue, -1)
-            if count != 0:
-                cv2.line(param[0], (left_lane_coordi.points[count-1][0], left_lane_coordi.points[count-1][1]), 
-                         (left_lane_coordi.points[count][0], left_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA)
-        calc_inclination(left_lane_coordi, left_lane, param[0], h_samples)
+        
         
         #오른쪽 point, line 불러오기
         right_lane_coordi = copy.deepcopy(pre_right_lane_coordi)
+        calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
         for count in range(0, len(right_lane_coordi.points)):
             cv2.circle(param[0], (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), 5, blue, -1)
-            if count != 0:
-                cv2.line(param[0], (right_lane_coordi.points[count-1][0], right_lane_coordi.points[count-1][1]),
-                         (right_lane_coordi.points[count][0], right_lane_coordi.points[count][1]), red, 4, cv2.LINE_AA)
-            
-        calc_inclination(right_lane_coordi, right_lane, param[0], h_samples)
+
         cv2.imshow('labeling_tusimple', param[0]) 
         param[1] = param[0].copy()
         lane_count = 8 # 이전 라벨링을 불러왔기 때문에 lane_count 8로 설정
@@ -322,6 +335,7 @@ def labeling(imagenum, auto_bright):
         label_index_txt = label_index_txt[len(label_index_txt)-1].rstrip('.png')
         train_cart_classes = ''
         file_data["raw_file"] = line
+        pre_label = False
 
         #아래 cv2.line은 사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
         cv2.line(crop, (0, h_samples[0]), (img_w, h_samples[0]), yellow, 5, cv2.LINE_AA)             
@@ -338,9 +352,9 @@ def labeling(imagenum, auto_bright):
         # 영상 출력
         cv2.imshow('labeling_tusimple', crop)
         waitKey=cv2.waitKey()
-        print(waitKey)
+        # print(waitKey)
         
-        if NEXT_PAGE == waitKey or waitKey == 13 :
+        if NEXT_PAGE == waitKey or waitKey == 13 : #space, enter key 라벨링 저장
             file_count += 1                
             if lane_count >= 3:     #lane이 2개 이상 선택 되었을때 json으로 저장할것
                 #여기에 json 파일 추가해야함!!!!!!!!!!!!!                
@@ -403,8 +417,6 @@ def labeling(imagenum, auto_bright):
                 print(label_index_txt)
                 with open("./label_index.txt", 'w') as label_index_str:
                     label_index_str.write(label_index_txt)
-                    
-                pre_label = False
             continue
 
         elif waitKey == 3 or waitKey == 54:      #-> 방향키 눌렀을때 다음 이미지로 그냥 넘어가고 라벨링은 안됨
@@ -425,9 +437,6 @@ def labeling(imagenum, auto_bright):
         elif waitKey== ord('q') or waitKey==ord('Q') or waitKey==66: #'q' (113) 나 'Q' (81) 누르면 while문에서 빠져나가도록
             #json 저장 함수 호출 작성해야함!!!!!!!!!!!
             break
-
-        elif waitKey == 27 or waitKey == 8: # 기존 라벨링 지우기
-            continue
 
     cv2.destroyAllWindows()
     f.close()
