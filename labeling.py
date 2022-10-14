@@ -355,7 +355,12 @@ def labeling(imagenum, auto_bright):
         # print(waitKey)
         
         if NEXT_PAGE == waitKey or waitKey == 13 : #space, enter key 라벨링 저장
-            file_count += 1                
+            file_count += 1
+            if lane_count<3:
+                for i in range(1, 40 + 1, 1):
+                    file_data["lanes"][0].append(-2)
+                    file_data["lanes"][1].append(-2
+                    )
             if lane_count >= 3:     #lane이 2개 이상 선택 되었을때 json으로 저장할것
                 #여기에 json 파일 추가해야함!!!!!!!!!!!!!                
                 ##################################################cv2.imsave 해줘야함~!!!
