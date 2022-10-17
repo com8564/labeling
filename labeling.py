@@ -3,11 +3,11 @@ from cv2 import destroyWindow
 import numpy as np
 import cv2
 import json
-import os
 from collections import OrderedDict
 from argparse import ArgumentParser as ArgParse
 import copy
 import glob
+import os
 
 green = (0, 255, 0)  # 이미지 내에 선이나 글자의 색상 : 녹색
 red = (0, 0, 255)  # 이미지 내에 선이나 글자의 색상 : 빨강
@@ -28,9 +28,10 @@ json_file_path = './train_cart.json'  # train_cart.json 파일 경로
 #train.txt 기준으로 train 이미지 불러오기
 
 #clips 폴더 기준으로 train 이미지 불러오기(경윤)
-lines = glob.glob('./clips/*.jpg')
-print(lines)
+jpg_images = glob.glob('./clips/*.jpg') #원본 파일
+png_images = glob.glob('./clips/*.png') #labelling 된 파일
 #clips 폴더 기준으로 train 이미지 불러오기(경윤)
+
 #글자 출력에 관한 global variable
 font = cv2.FONT_HERSHEY_SIMPLEX  # 폰트 종류
 org = (10, 60)  # 폰트를 찍는 위치
@@ -316,7 +317,8 @@ def on_mouse(event, x, y, flags, param):
 
 def labeling(imagenum, auto_bright):
     cv2.namedWindow('labeling_tusimple', cv2.WND_PROP_FULLSCREEN)
-    file_count = imagenum-1
+    # file_count = imagenum-1
+    file_count = len(png_images) #labelling을 하게되면 png 파일이 무조건 생성 -> png 파일로 인덱스 기록
     global file_data, lane_count, pre_label
     # 이전의 값들을 받아오기 위해 global 변수로 받아옴
     global left_lane_coordi, right_lane_coordi, pre_left_lane_coordi, pre_right_lane_coordi
@@ -324,9 +326,11 @@ def labeling(imagenum, auto_bright):
     pre_left_lane_coordi.__init__()
     pre_right_lane_coordi.__init__()
 
-    while (file_count < len(lines)):
-        #for line in lines: #for문으로 하니까 index 조절이 안됨
-        line = lines[file_count]
+    while (file_count < len(jpg_images)): #jpg 파일과 png 파일 비교해서 실행
+        line = jpg_images[file_count]
+        #문자 parsing
+        line = line.replace("\\", "/")
+        line = line[2:]
 
         left_lane_coordi.__init__()
         right_lane_coordi.__init__()
@@ -360,9 +364,9 @@ def labeling(imagenum, auto_bright):
 
         seg_gt_png_path = (line.rstrip('.jpg ')) + '.png'
         train_gt_str = line + ' ' + seg_gt_png_path
-        label_index_txt = seg_gt_png_path.split('/')
-        label_index_txt = label_index_txt[len(
-            label_index_txt)-1].rstrip('.png')
+        # label_index_txt = seg_gt_png_path.split('/')
+        # label_index_txt = label_index_txt[len(
+        #     label_index_txt)-1].rstrip('.png')
         train_cart_classes = ''
         file_data["raw_file"] = line
         pre_label = False
@@ -374,8 +378,7 @@ def labeling(imagenum, auto_bright):
                  h_samples[len(h_samples)-1]), yellow, 4, cv2.LINE_AA)
         #위 cv2.line은 사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
 
-        text = str(file_count+1) + ' / ' + \
-            str(len(lines)) + ' filename : ' + line
+        text = str(file_count+1) + ' / ' + str(len(jpg_images)) + ' filename : ' + line
         cv2.putText(crop, text, org, font, 1, red, 4)
         # 윈도우 창
         # 마우스 입력, namedWIndow or imshow가 실행되어 창이 떠있는 상태에서만 사용가능
@@ -385,7 +388,7 @@ def labeling(imagenum, auto_bright):
         # 영상 출력
         cv2.imshow('labeling_tusimple', crop)
         waitKey = cv2.waitKey()
-        # print(waitKey)
+        print(waitKey)
 
         if NEXT_PAGE == waitKey or waitKey == 13:  # space, enter key 라벨링 저장
             file_count += 1
@@ -461,9 +464,111 @@ def labeling(imagenum, auto_bright):
                 string = json.dumps(file_data)
                 string += '\n'
                 json_file.write(string)
-            print(label_index_txt)
-            with open("./label_index.txt", 'w') as label_index_str:
-                label_index_str.write(label_index_txt)
+            continue
+
+        #'a'(97) 왼쪽 line만 존재
+        elif waitKey == ord('a') or waitKey == ord('A'):
+            file_count += 1
+            label_img = np.zeros((img_h, img_w), dtype=np.uint8)
+
+            for i in range(1, 40 + 1, 1):
+                file_data["lanes"][1].append(-2)
+
+            train_gt_str = train_gt_str + ' 1 0\n'
+            train_cart_classes = train_cart_classes + '1 0\n'
+
+            if lane_count >= 3:  # lane이 2개 이상 선택 되었을때 json으로 저장할것
+                #여기에 json 파일 추가해야함!!!!!!!!!!!!!
+                ##################################################cv2.imsave 해줘야함~!!!
+
+                if len(file_data["lanes"][0]) > 0:
+                    lane_class = 1  # 왼쪽
+                    for i in range(0, len(file_data["lanes"][0])-1):
+                        if file_data["lanes"][0][i] != -2 and file_data["lanes"][0][i+1] != -2:
+                            cv2.line(label_img, (file_data["lanes"][0][i], h_samples[i]), (
+                                file_data["lanes"][0][i+1], h_samples[i+1]), lane_class, 24, cv2.LINE_8)
+
+            print('h_samples : ', end='')
+            print(file_data["h_samples"])
+            print('lanes : ', end='')
+            print(file_data["lanes"])
+
+            with open("./train_cart_classes.txt", 'r+') as gt_classes_txt:
+                for line in gt_classes_txt:
+                    pass
+                gt_classes_txt.write(train_cart_classes)
+
+            with open("./train_gt.txt", 'r+') as gt_txt:
+                for line in gt_txt:
+                    pass
+                gt_txt.write(train_gt_str)
+            #gt_lines = gt_txt.readlines()
+            # cv2.imshow('label_img', label_img)     #seg label 보고싶으면 이걸 활성화 할것
+            cv2.imwrite(seg_gt_png_path, label_img)
+
+            #현재 label 좌표 저장
+            pre_left_lane_coordi = copy.deepcopy(left_lane_coordi)
+            pre_right_lane_coordi = copy.deepcopy(right_lane_coordi)
+
+            with open(json_file_path, "r+") as json_file:
+                for line in json_file:  # 파일의 맨 끝으로 가는 코드
+                    pass
+                string = json.dumps(file_data)
+                string += '\n'
+                json_file.write(string)
+            continue
+        
+        #'s'(115)
+        elif waitKey == ord('s') or waitKey == ord('S'):
+            file_count += 1
+            label_img = np.zeros((img_h, img_w), dtype=np.uint8)
+
+            for i in range(1, 40 + 1, 1):
+                file_data["lanes"][1].append(-2)
+            file_data["lanes"][0], file_data["lanes"][1] = file_data["lanes"][1], file_data["lanes"][0]
+
+            train_gt_str = train_gt_str + ' 0 1\n'
+            train_cart_classes = train_cart_classes + '0 1\n'
+
+            if lane_count >= 3:  # lane이 2개 이상 선택 되었을때 json으로 저장할것
+                #여기에 json 파일 추가해야함!!!!!!!!!!!!!
+                ##################################################cv2.imsave 해줘야함~!!!
+
+                if len(file_data["lanes"][1]) > 0:
+                    lane_class = 2 # 오른쪽
+                    for i in range(0, len(file_data["lanes"][1])-1):
+                        if file_data["lanes"][1][i] != -2 and file_data["lanes"][1][i+1] != -2:
+                            cv2.line(label_img, (file_data["lanes"][1][i], h_samples[i]), (
+                                file_data["lanes"][1][i+1], h_samples[i+1]), lane_class, 24, cv2.LINE_8)
+
+            print('h_samples : ', end='')
+            print(file_data["h_samples"])
+            print('lanes : ', end='')
+            print(file_data["lanes"])
+
+            with open("./train_cart_classes.txt", 'r+') as gt_classes_txt:
+                for line in gt_classes_txt:
+                    pass
+                gt_classes_txt.write(train_cart_classes)
+
+            with open("./train_gt.txt", 'r+') as gt_txt:
+                for line in gt_txt:
+                    pass
+                gt_txt.write(train_gt_str)
+            #gt_lines = gt_txt.readlines()
+            # cv2.imshow('label_img', label_img)     #seg label 보고싶으면 이걸 활성화 할것
+            cv2.imwrite(seg_gt_png_path, label_img)
+
+            #현재 label 좌표 저장
+            pre_left_lane_coordi = copy.deepcopy(left_lane_coordi)
+            pre_right_lane_coordi = copy.deepcopy(right_lane_coordi)
+
+            with open(json_file_path, "r+") as json_file:
+                for line in json_file:  # 파일의 맨 끝으로 가는 코드
+                    pass
+                string = json.dumps(file_data)
+                string += '\n'
+                json_file.write(string)
             continue
 
         elif waitKey == 3 or waitKey == 54:  # -> 방향키 눌렀을때 다음 이미지로 그냥 넘어가고 라벨링은 안됨
@@ -487,7 +592,7 @@ def labeling(imagenum, auto_bright):
         elif waitKey == ord('q') or waitKey == ord('Q') or waitKey == 66:
             #json 저장 함수 호출 작성해야함!!!!!!!!!!!
             break
-
+        
     cv2.destroyAllWindows()
     # f.close()
 
@@ -502,10 +607,12 @@ if __name__ == '__main__':
 
     #label_index.txt 파일에 적힌 번호 다음 번호를 받아와서 이미지를 로드함
     label_index = 0
-    with open("./label_index.txt", 'r') as label_index_num:
-        readline_label_index = label_index_num.readlines()
-        if readline_label_index != None:
-            label_index = int(readline_label_index[0])+1
+    
+    #생성된 png를 기준으로 다음 번호 받아와서 이미지를 로드함
+    if len(png_images)==0:
+        label_index = os.path.splitext(os.path.basename(jpg_images[0]))[0]
+    else:
+        label_index = os.path.splitext(os.path.basename(png_images[-1]))[0]
 
     if label_index != 0 and args.imagenum == 0:
         args.imagenum = label_index
