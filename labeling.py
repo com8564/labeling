@@ -464,9 +464,7 @@ def labeling(imagenum, auto_bright):
             with open(json_file_path, "r+") as json_file:
                 for line in json_file:  # 파일의 맨 끝으로 가는 코드
                     pass
-                string = json.dumps(file_data)
-                string += '\n'
-                json_file.write(string)
+                json_file.write(json.dumps(file_data) + '\n')
             continue
 
         #'a'(97) 왼쪽 line만 존재
@@ -512,9 +510,7 @@ def labeling(imagenum, auto_bright):
             with open(json_file_path, "r+") as json_file:
                 for line in json_file:  # 파일의 맨 끝으로 가는 코드
                     pass
-                string = json.dumps(file_data)
-                string += '\n'
-                json_file.write(string)
+                json_file.write(json.dumps(file_data) + '\n')
             continue
         
         #'s'(115) 오른쪽 line 만 존재
@@ -524,6 +520,7 @@ def labeling(imagenum, auto_bright):
 
             for i in range(1, 40 + 1, 1):
                 file_data["lanes"][1].append(-2)
+
             file_data["lanes"][0], file_data["lanes"][1] = file_data["lanes"][1], file_data["lanes"][0]
 
             train_gt_str = train_gt_str + ' 0 1\n'
@@ -561,9 +558,7 @@ def labeling(imagenum, auto_bright):
             with open(json_file_path, "r+") as json_file:
                 for line in json_file:  # 파일의 맨 끝으로 가는 코드
                     pass
-                string = json.dumps(file_data)
-                string += '\n'
-                json_file.write(string)
+                json_file.write(json.dumps(file_data) + '\n')
             continue
 
         elif waitKey == 3 or waitKey == 54:  # -> 방향키 눌렀을때 다음 이미지로 그냥 넘어가고 라벨링은 안됨
@@ -586,21 +581,46 @@ def labeling(imagenum, auto_bright):
         
         # Backspace 해당 labelling 정보 지우기
         elif waitKey == 8:
-            jpg_images_path = os.path.splitext(os.path.basename(seg_gt_png_path))[0] + '.jpg'
-            check = messageBox("경고", "{} labelling 정보를 삭제 하시겠습니까?".format(jpg_images_path), 49)
+            jpg_image_name = os.path.splitext(os.path.basename(seg_gt_png_path))[0] + '.jpg'
+            check = messageBox("경고", "{} labelling 정보를 삭제 하시겠습니까?".format(jpg_image_name), 49)
             index = 0
-            with open(json_file_path, "r+") as json_file:
-                for line in json_file:
-                    json_data = json.loads(line)
-                    if json_data['raw_file'].split('/')[-1] == jpg_images_path:
-                        continue
-                    index += 1
-                    
+
             if check == 1:
                 if os.path.isfile(seg_gt_png_path):
                     os.remove(seg_gt_png_path) #png 파일삭제
-                    print("사용자에의해 {}삭제됨".format(seg_gt_png_path))
-                print("삭제")
+
+                    with open(json_file_path, "r+") as json_file: #json file 내용 삭제
+                        new_json = json_file.readlines()
+                        json_file.seek(0) #파일의 시작점으로 이동
+                        for line in new_json:
+                            json_data = json.loads(line)
+                            if json_data['raw_file'].split('/')[-1] != jpg_image_name:
+                                json_file.write(json.dumps(json_data)+'\n')
+                        json_file.truncate() #현재 기록된 정보 이후로 전부 삭제
+
+                    with open("./train_gt.txt", 'r+') as gt_txt:
+                        new_gt_txt = gt_txt.readlines()
+                        gt_txt.seek(0)
+                        count = 0
+                        for line in new_gt_txt:
+                            tmp = line.split(' ')[0].split('/')[1]
+                            if tmp != jpg_image_name:
+                                gt_txt.write(line)
+                            else :
+                                index = count #train_gt에서 index 번호 확인
+                            count+=1
+                        gt_txt.truncate()
+                    
+                    with open("./train_cart_classes.txt", 'r+') as gt_classes_txt:
+                        new_gt_classes_txt = gt_classes_txt.readlines()
+                        gt_classes_txt.seek(0)
+                        count = 0
+                        for line in new_gt_classes_txt:
+                            if count != index:
+                                gt_classes_txt.write(line)
+                            count+=1
+                        gt_classes_txt.truncate()
+                    print("사용자에 의해 {} labelling 정보 삭제됨".format(jpg_image_name))
                 
             elif check == 2:
                 print("삭제안됨")
@@ -615,7 +635,7 @@ def labeling(imagenum, auto_bright):
     
 def messageBox(title, text, style): 
     # message box 띄우기 
-    # 메시지 스타일 참고 : https://papazeros.tistory.com/m/-
+    # 메시지 스타일 참고 : https://papazeros.tistory.com/m/3/
 	return ctypes.windll.user32.MessageBoxW(None, text, title, style)
 
 if __name__ == '__main__':
