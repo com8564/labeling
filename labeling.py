@@ -367,9 +367,6 @@ def labeling(imagenum, auto_bright):
 
         seg_gt_png_path = (line.rstrip('.jpg ')) + '.png'
         train_gt_str = line + ' ' + seg_gt_png_path
-        # label_index_txt = seg_gt_png_path.split('/')
-        # label_index_txt = label_index_txt[len(
-        #     label_index_txt)-1].rstrip('.png')
         train_cart_classes = ''
         file_data["raw_file"] = line
         pre_label = False
@@ -381,6 +378,21 @@ def labeling(imagenum, auto_bright):
                  h_samples[len(h_samples)-1]), yellow, 4, cv2.LINE_AA)
         #위 cv2.line은 사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
 
+        # 라벨링 정보 확인
+        jpg_image_name = os.path.splitext(os.path.basename(seg_gt_png_path))[0] + '.jpg'
+        with open(json_file_path, "r+") as json_file: #json file 내용 삭제
+            new_json = json_file.readlines()
+            for data in new_json:
+                json_data = json.loads(data)
+                if json_data['raw_file'].split('/')[-1] == jpg_image_name:
+                    for count in range(0, len(json_data['lanes'][0])):
+                        if json_data['lanes'][0][count] != -2:
+                            cv2.circle(
+                                crop, (json_data['lanes'][0][count], json_data['h_samples'][count]), 5, green, -1)
+                        if json_data['lanes'][1][count] != -2:
+                            cv2.circle(
+                                crop, (json_data['lanes'][1][count], json_data['h_samples'][count]), 5, green, -1)
+        # 라벨링 정보 확인
         text = str(file_count+1) + ' / ' + str(len(jpg_images)) + ' filename : ' + line
         cv2.putText(crop, text, org, font, 1, red, 4)
         # 윈도우 창
@@ -453,7 +465,7 @@ def labeling(imagenum, auto_bright):
                 for line in gt_txt:
                     pass
                 gt_txt.write(train_gt_str)
-            #gt_lines = gt_txt.readlines()
+                
             # cv2.imshow('label_img', label_img)     #seg label 보고싶으면 이걸 활성화 할것
             cv2.imwrite(seg_gt_png_path, label_img)
 
@@ -581,9 +593,9 @@ def labeling(imagenum, auto_bright):
         
         # Backspace 해당 labelling 정보 지우기
         elif waitKey == 8:
-            jpg_image_name = os.path.splitext(os.path.basename(seg_gt_png_path))[0] + '.jpg'
+            # jpg_image_name = os.path.splitext(os.path.basename(seg_gt_png_path))[0] + '.jpg'
             check = messageBox("경고", "{} labelling 정보를 삭제 하시겠습니까?".format(jpg_image_name), 49)
-            index = 0
+            index = 0 #txt 파일 행 확인
 
             if check == 1:
                 if os.path.isfile(seg_gt_png_path):
