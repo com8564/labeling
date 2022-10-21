@@ -48,7 +48,7 @@ lane_count = 0  # lane의 점을 몇개 찍었는지 count
 l_index = -1  # left line mouse point index value
 r_index = -1  # right line mouse point index value
 pre_label = False  # 이전의 label 불러왔는지 확인 변수
-
+more_point = False # 7개의 포인터를 찍게 하기위한 변수
 
 class MyLane:
     def __init__(self):
@@ -156,7 +156,6 @@ def on_mouse(event, x, y, flags, param):
 
     if event == cv2.EVENT_LBUTTONDOWN:  # 마우스 왼쪽이 눌러지면 실행
         pre_label = False
-
         if lane_count >= 0 and lane_count < 4:
             # 마우스가 눌렀을 때 좌표 저장, 띄워진 영상에서의 좌측 상단 기준
             left_lane_coordi.points_append(x, y)
@@ -320,20 +319,29 @@ def labeling(imagenum, auto_bright):
     cv2.namedWindow('labeling_tusimple', cv2.WND_PROP_FULLSCREEN)
     # file_count = imagenum-1
     file_count = len(png_images) #labelling을 하게되면 png 파일이 무조건 생성 -> png 파일로 인덱스 기록 
-    # But. 중간에 png 파일이 없다면..?? if 1.jpg 2.jpg 3.jpg 4.jpg 5.jpg 6.jpg /// 1.png 2.png, 5.png index 는 4로 file count 는 4로 기록
-    
+
     # 이전의 값들을 받아오기 위해 global 변수로 받아옴
-    global file_data, lane_count, pre_label
+    global file_data, lane_count, pre_label, b_imgnum, more_point
     global left_lane_coordi, right_lane_coordi, pre_left_lane_coordi, pre_right_lane_coordi
 
     pre_left_lane_coordi.__init__()
     pre_right_lane_coordi.__init__()
 
     while (file_count < len(jpg_images)): #jpg 파일과 png 파일 비교해서 실행
-        line = jpg_images[file_count]
-        #문자 parsing
-        line = line.replace("\\", "/")
-        line = line[2:]
+        if b_imgnum == False:
+            line = jpg_images[file_count]
+            line = line.replace("\\", "/")
+            line = line[2:]
+        else: 
+            line = 'clips/' + str(imagenum).zfill(8) + '.jpg'
+            file_count=0
+            for i in jpg_images:
+                if i.replace("\\", "/")[2:] == line:
+                    print(file_count)
+                    break
+                file_count+=1
+
+            b_imgnum = False
 
         left_lane_coordi.__init__()
         right_lane_coordi.__init__()
@@ -590,7 +598,15 @@ def labeling(imagenum, auto_bright):
             else:
                 auto_bright = 1
                 print('auto_bright on')
-        
+
+        elif waitKey == 50: 
+            if more_point == False:
+                more_point = True
+                print('more point on')
+            else:
+                more_point = False
+                print('more point off')
+
         # Backspace 해당 labelling 정보 지우기
         elif waitKey == 8:
             # jpg_image_name = os.path.splitext(os.path.basename(seg_gt_png_path))[0] + '.jpg'
@@ -600,7 +616,7 @@ def labeling(imagenum, auto_bright):
             if check == 1:
                 if os.path.isfile(seg_gt_png_path):
                     os.remove(seg_gt_png_path) #png 파일삭제
-
+                    
                     with open(json_file_path, "r+") as json_file: #json file 내용 삭제
                         new_json = json_file.readlines()
                         json_file.seek(0) #파일의 시작점으로 이동
@@ -660,7 +676,7 @@ if __name__ == '__main__':
 
     #label_index.txt 파일에 적힌 번호 다음 번호를 받아와서 이미지를 로드함
     label_index = 0
-    
+    b_imgnum = False
     #생성된 png를 기준으로 다음 번호 받아와서 이미지를 로드함
     if len(png_images)==0:
         label_index = os.path.splitext(os.path.basename(jpg_images[0]))[0]
@@ -672,6 +688,7 @@ if __name__ == '__main__':
         print('label_index.txt 파일에 의해 ' + str(label_index) + '번 이미지가 열림')
     #--imagenum argument로 사용자에게 이미지 번호를 받아서 로드함
     elif args.imagenum != 0:
+        b_imgnum = True #arg의 imgnum의 flag
         print('사용자에 의해 ' + str(args.imagenum) + '번 이미지가 열림')
 
     left_lane_coordi = MyLane()
