@@ -1,5 +1,4 @@
-import sys
-from cv2 import destroyWindow
+import re
 import numpy as np
 import cv2
 import json
@@ -9,6 +8,7 @@ import copy
 import glob
 import os
 import ctypes
+from tkinter import *
 
 green = (0, 255, 0)  # 이미지 내에 선이나 글자의 색상 : 녹색
 red = (0, 0, 255)  # 이미지 내에 선이나 글자의 색상 : 빨강
@@ -28,10 +28,10 @@ json_file_path = './train_cart.json'  # train_cart.json 파일 경로
 # file_data = OrderedDict()  # json파일 저장을 위한 file_data 선언
 #train.txt 기준으로 train 이미지 불러오기
 
-#clips 폴더 기준으로 train 이미지 불러오기(경윤)
+#clips 폴더 기준으로 train 이미지 불러오기
 jpg_images = glob.glob('./clips/*.jpg') #원본 파일
 png_images = glob.glob('./clips/*.png') #labelling 된 파일
-#clips 폴더 기준으로 train 이미지 불러오기(경윤)
+#clips 폴더 기준으로 train 이미지 불러오기
 
 #글자 출력에 관한 global variable
 font = cv2.FONT_HERSHEY_SIMPLEX  # 폰트 종류
@@ -459,7 +459,7 @@ def labeling(imagenum, auto_bright):
 
     # 이전의 값들을 받아오기 위해 global 변수로 받아옴
     global file_data, lane_count, pre_label, b_imgnum, more_point
-    global left_lane_coordi, right_lane_coordi, pre_left_lane_coordi, pre_right_lane_coordi
+    global left_lane_coordi, right_lane_coordi, pre_left_lane_coordi, pre_right_lane_coordi, h_samples
 
     pre_left_lane_coordi.__init__()
     pre_right_lane_coordi.__init__()
@@ -521,8 +521,8 @@ def labeling(imagenum, auto_bright):
         #아래 cv2.line은 사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
         cv2.line(crop, (0, h_samples[0]), (img_w,
                  h_samples[0]), yellow, 5, cv2.LINE_AA)
-        cv2.line(crop, (0, h_samples[len(h_samples)-1]), (img_w,
-                 h_samples[len(h_samples)-1]), yellow, 4, cv2.LINE_AA)
+        cv2.line(crop, (0, h_samples[-1]), (img_w,
+                 h_samples[-1]), yellow, 4, cv2.LINE_AA)
         #위 cv2.line은 사용자가 노란색선안에 점들이 제대로 찍혔는지 확인하기 위함
 
         # 라벨링 정보 확인
@@ -540,7 +540,8 @@ def labeling(imagenum, auto_bright):
                             cv2.circle(
                                 crop, (json_data['lanes'][1][count], json_data['h_samples'][count]), 5, green, -1)
         # 라벨링 정보 확인
-        text = str(file_count+1) + ' / ' + str(len(jpg_images)) + ', filename : ' + line + ', More point : ' + point_flag
+        text = str(file_count+1) + ' / ' + str(len(jpg_images)) + \
+            ', filename : ' + line + ', More point : ' + point_flag + ', H_Sample : ' + str(len(h_samples))
         cv2.putText(crop, text, org, font, 1, red, 4)
         # 윈도우 창
         # 마우스 입력, namedWIndow or imshow가 실행되어 창이 떠있는 상태에서만 사용가능
@@ -557,7 +558,7 @@ def labeling(imagenum, auto_bright):
             label_img = np.zeros((img_h, img_w), dtype=np.uint8)
 
             if lane_count < 3:
-                for i in range(1, 40 + 1, 1):
+                for i in range(1, len(h_samples) + 1, 1):
                     file_data["lanes"][0].append(-2)
                     file_data["lanes"][1].append(-2)
 
@@ -592,7 +593,7 @@ def labeling(imagenum, auto_bright):
                                 file_data["lanes"][1][i+1], h_samples[i+1]), lane_class, 24, cv2.LINE_8)
                 else:
                     if len(file_data['lanes'][1])==0:
-                        for i in range(1, 40 + 1, 1):
+                        for i in range(1, len(h_samples) + 1, 1):
                             file_data["lanes"][1].append(-2)
 
                     train_gt_str = train_gt_str + ' ' + '0'
@@ -616,7 +617,12 @@ def labeling(imagenum, auto_bright):
                 for line in gt_txt:
                     pass
                 gt_txt.write(train_gt_str)
-                
+
+            with open("./train.txt", 'r+') as train:
+                for line in train:
+                    pass
+                train.write(train_gt_str.split(' ')[0] + '\n')
+
             # cv2.imshow('label_img', label_img)     #seg label 보고싶으면 이걸 활성화 할것
             cv2.imwrite(seg_gt_png_path, label_img)
 
@@ -635,7 +641,7 @@ def labeling(imagenum, auto_bright):
             file_count += 1
             label_img = np.zeros((img_h, img_w), dtype=np.uint8)
 
-            for i in range(1, 40 + 1, 1):
+            for i in range(1, len(h_samples) + 1, 1):
                 file_data["lanes"][1].append(-2)
 
             train_gt_str = train_gt_str + ' 1 0\n'
@@ -649,8 +655,6 @@ def labeling(imagenum, auto_bright):
                             cv2.line(label_img, (file_data["lanes"][0][i], h_samples[i]), (
                                 file_data["lanes"][0][i+1], h_samples[i+1]), lane_class, 24, cv2.LINE_8)
 
-            # print('h_samples : ', end='')
-            # print(file_data["h_samples"])
             print('lanes : ', end='')
             print(file_data["lanes"])
 
@@ -663,6 +667,11 @@ def labeling(imagenum, auto_bright):
                 for line in gt_txt:
                     pass
                 gt_txt.write(train_gt_str)
+
+            with open("./train.txt", 'r+') as train:
+                for line in train:
+                    pass
+                train.write(train_gt_str.split(' ')[0] + '\n')
 
             cv2.imwrite(seg_gt_png_path, label_img)
 
@@ -681,7 +690,7 @@ def labeling(imagenum, auto_bright):
             file_count += 1
             label_img = np.zeros((img_h, img_w), dtype=np.uint8)
 
-            for i in range(1, 40 + 1, 1):
+            for i in range(1, len(h_samples) + 1, 1):
                 file_data["lanes"][1].append(-2)
 
             file_data["lanes"][0], file_data["lanes"][1] = file_data["lanes"][1], file_data["lanes"][0]
@@ -712,6 +721,11 @@ def labeling(imagenum, auto_bright):
                     pass
                 gt_txt.write(train_gt_str)
 
+            with open("./train.txt", 'r+') as train:
+                for line in train:
+                    pass
+                train.write(train_gt_str.split(' ')[0] + '\n')
+                
             cv2.imwrite(seg_gt_png_path, label_img)
 
             #현재 label 좌표 저장
@@ -791,10 +805,28 @@ def labeling(imagenum, auto_bright):
                                 gt_classes_txt.write(line)
                             count+=1
                         gt_classes_txt.truncate()
+                    
+                    with open("./train.txt", 'r+') as train_txt:
+                        new_train_txt = train_txt.readlines()
+                        train_txt.seek(0)
+                        count = 0
+                        for line in new_train_txt:
+                            if count != index:
+                                train_txt.write(line)
+                            count+=1
+                        train_txt.truncate()
+
                     print("사용자에 의해 {} labelling 정보 삭제됨".format(jpg_image_name))
                 
             elif check == 2:
                 print("삭제안됨")
+
+        elif waitKey == 51:
+            tmp = input('입력 : ')
+            tmp = 720 - (int(tmp)*10)
+            if tmp < 0 : tmp = 0
+            h_samples= list(range(tmp, 720, 10))
+
                 
         # 'q' (113) 나 'Q' (81) 누르면 while문에서 빠져나가도록
         elif waitKey == ord('q') or waitKey == ord('Q') or waitKey == 66:
@@ -808,6 +840,7 @@ def messageBox(title, text, style):
     # message box 띄우기 
     # 메시지 스타일 참고 : https://papazeros.tistory.com/m/3/
 	return ctypes.windll.user32.MessageBoxW(None, text, title, style)
+
 
 if __name__ == '__main__':
     ap = ArgParse()
