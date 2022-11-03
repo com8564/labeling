@@ -1,5 +1,0 @@
-clips/00052992.jpg clips/00052992.png 0 1
-clips/00052993.jpg clips/00052993.png 0 0
-clips/00052994.jpg clips/00052994.png 1 0
-clips/00052995.jpg clips/00052995.png 1 1
-clips/00052996.jpg clips/00052996.png 1 1
