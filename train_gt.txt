@@ -1,0 +1,2 @@
+clips/00052987.jpg clips/00052987.png 0 0
+clips/00052988.jpg clips/00052988.png 1 1
