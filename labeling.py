@@ -212,7 +212,7 @@ def on_mouse(event, x, y, flags, param):
                 cv2.circle(param[0], (x, y), 5, blue, -1)
                 cv2.circle(param[1], (x, y), 5, blue, -1)
                 cv2.imshow('labeling_tusimple', param[0])
-                print('EVENT_LBUTTONDOWN: %d, %d' % (x, y))  # 좌표 출력
+                print('EVENT_LBUTTONDOWN: %d, %d' % (x, y))  # 좌표 출력A
                 lane_count += 1
 
             elif lane_count >= 4 and lane_count < 8:
@@ -230,6 +230,7 @@ def on_mouse(event, x, y, flags, param):
                 lane_count += 1
             else:
                 pass
+            
         else:
             if lane_count >= 0 and lane_count < 7:
                 # 마우스가 눌렀을 때 좌표 저장, 띄워진 영상에서의 좌측 상단 기준
